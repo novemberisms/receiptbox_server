@@ -6,12 +6,17 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
 const port = 3885
 const invalidDateFormat = "Invalid date format. Please use mm-dd"
+const outputfile = "receipts.xlsx"
+
+var months = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 
 // represents the raw json data received from a receiptbox client
 type message struct {
@@ -61,31 +66,82 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Restaurant: %s\n", entry.Restaurant)
 	fmt.Printf("Amount: %s\n", entry.Amount.StringFixedBank(2))
 
-	updateSheet(entry)
+	setupSheet(outputfile)
+	updateSheet(outputfile, entry)
 
 	fmt.Fprint(w, "OK")
 }
 
-func updateSheet(e *entry) {
+func updateSheet(filename string, e *entry) {
 
-	f, err := excelize.OpenFile("./receipts.xlsx")
+	f, err := excelize.OpenFile(filename)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rows, err := f.GetRows("Sheet1")
+	sheetName := getSheetNameForDate(e.Date)
+	rowNumber := findFirstEmptyRow(f, sheetName)
+
+	f.SetCellValue(sheetName, fmt.Sprintf("A%d", rowNumber), e.Date.Format("January 02, 2006"))
+	f.SetCellValue(sheetName, fmt.Sprintf("B%d", rowNumber), e.Restaurant)
+	f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNumber), e.Amount.StringFixedBank(2))
+
+	if err = f.Save(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func setupSheet(filename string) {
+
+	f, err := excelize.OpenFile(filename)
+	if err != nil {
+		// if the sheet does not exist yet, then create one
+		f = excelize.NewFile()
+		f.SaveAs(filename)
+		setupSheet(filename)
+		return
+	}
+
+	// determine if the sheet is already set up
+	if f.GetSheetIndex(months[0]) != 0 {
+		return
+	}
+
+	for _, monthName := range months {
+		f.NewSheet(monthName)
+		f.SetColWidth(monthName, "A", "A", 20)
+		f.SetColWidth(monthName, "B", "B", 32)
+		f.SetColWidth(monthName, "C", "C", 10)
+	}
+	f.Save()
+}
+
+func getSheetNameForDate(date time.Time) string {
+	for i, name := range months {
+		if int(date.Month()) == i+1 {
+			return name
+		}
+	}
+
+	return "Sheet1"
+}
+
+func findFirstEmptyRow(f *excelize.File, sheetName string) int {
+	rows, err := f.GetRows(sheetName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// calculate the first empty row
-	rowNumber := len(rows) + 1
-
-	f.SetCellValue("Sheet1", fmt.Sprintf("A%d", rowNumber), e.Date.Format("January 02, 2006"))
-	f.SetCellValue("Sheet1", fmt.Sprintf("B%d", rowNumber), e.Restaurant)
-	f.SetCellValue("Sheet1", fmt.Sprintf("C%d", rowNumber), e.Amount.StringFixedBank(2))
-
-	if err = f.SaveAs("./receipts.xlsx"); err != nil {
-		log.Fatal(err)
+	for i, row := range rows {
+		if len(row) == 0 {
+			return i + 1
+		}
+		if strings.TrimSpace(row[0]) == "" {
+			return i + 1
+		}
 	}
+
+	// if control reaches here, then all previous rows have content and so we need to make a new one
+	return len(rows) + 1
 }
