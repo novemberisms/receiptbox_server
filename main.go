@@ -29,7 +29,7 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 
-	fmt.Printf("Running receiptbox_server v0.1 on port %d\n", port)
+	fmt.Printf("Running receiptbox_server on port %d\n", port)
 
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 
