@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -15,6 +16,8 @@ import (
 const port = 3885
 const invalidDateFormat = "Invalid date format. Please use mm-dd"
 const outputfile = "receipts.xlsx"
+
+var mutex = sync.Mutex{}
 
 var months = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 
@@ -74,6 +77,11 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 func updateSheet(filename string, e *entry) {
 
+	fmt.Print("Updating sheet...")
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	f, err := excelize.OpenFile(filename)
 	if err != nil {
 		log.Fatal(err)
@@ -89,23 +97,32 @@ func updateSheet(filename string, e *entry) {
 	if err = f.Save(); err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("OK")
 }
 
 func setupSheet(filename string) {
 
 	f, err := excelize.OpenFile(filename)
 	if err != nil {
+		fmt.Print("Creating new sheet...")
 		// if the sheet does not exist yet, then create one
 		f = excelize.NewFile()
 		f.SaveAs(filename)
+		fmt.Println("OK")
 		setupSheet(filename)
 		return
 	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	// determine if the sheet is already set up
 	if f.GetSheetIndex(months[0]) != 0 {
 		return
 	}
+
+	fmt.Print("Setting up sheet...")
 
 	for _, monthName := range months {
 		f.NewSheet(monthName)
@@ -114,6 +131,8 @@ func setupSheet(filename string) {
 		f.SetColWidth(monthName, "C", "C", 10)
 	}
 	f.Save()
+
+	fmt.Println("OK")
 }
 
 func getSheetNameForDate(date time.Time) string {
