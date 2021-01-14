@@ -16,7 +16,7 @@ type entry struct {
 	Amount     decimal.Decimal
 }
 
-func createEntry(msg message) (*entry, error) {
+func createEntry(msg message, year int) (*entry, error) {
 	result := entry{}
 
 	// get restaurant name
@@ -48,7 +48,7 @@ func createEntry(msg message) (*entry, error) {
 	if day > 31 || day < 1 {
 		return nil, errors.New(invalidDateFormat)
 	}
-	result.Date = time.Date(time.Now().Year(), time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	result.Date = time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 
 	// done
 	return &result, nil

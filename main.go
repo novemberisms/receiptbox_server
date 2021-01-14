@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,7 +30,19 @@ type message struct {
 	Amount     string `json:"amount"`
 }
 
+var currentYear = time.Now().Year()
+
 func main() {
+
+	if len(os.Args) > 1 {
+		var err error
+
+		currentYear, err = strconv.Atoi(os.Args[1])
+
+		if err != nil {
+			log.Fatal(fmt.Sprintf("Cannot convert year '%s' to a number\n", os.Args[1]))
+		}
+	}
 
 	http.HandleFunc("/", indexHandler)
 
@@ -59,7 +73,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	entry, err := createEntry(msg)
+	entry, err := createEntry(msg, currentYear)
 	if err != nil {
 		fmt.Fprint(w, err.Error())
 		return
