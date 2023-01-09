@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -60,7 +60,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("> received %s request\n", r.Method)
 
 	// read the sent data as bytes
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
 		log.Fatal(err)
@@ -160,10 +160,7 @@ func getSheetNameForDate(date time.Time) string {
 }
 
 func findFirstEmptyRow(f *excelize.File, sheetName string) int {
-	rows, err := f.GetRows(sheetName)
-	if err != nil {
-		log.Fatal(err)
-	}
+	rows := f.GetRows(sheetName)
 
 	// calculate the first empty row
 	for i, row := range rows {
