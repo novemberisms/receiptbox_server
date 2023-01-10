@@ -32,6 +32,8 @@ type message struct {
 
 var currentYear = time.Now().Year()
 
+var currentTotal = 0.0
+
 func main() {
 
 	if len(os.Args) > 1 {
@@ -84,12 +86,12 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Amount: %s\n", entry.Amount.StringFixedBank(2))
 
 	setupSheet(outputfile)
-	updateSheet(outputfile, entry)
+	total := updateSheet(outputfile, entry)
 
-	fmt.Fprint(w, "OK")
+	fmt.Fprintf(w, "OK: %s", strconv.FormatFloat(total, 'f', 2, 64))
 }
 
-func updateSheet(filename string, e *entry) {
+func updateSheet(filename string, e *entry) float64 {
 
 	fmt.Print("Updating sheet...")
 
@@ -106,13 +108,24 @@ func updateSheet(filename string, e *entry) {
 
 	f.SetCellValue(sheetName, fmt.Sprintf("A%d", rowNumber), e.Date.Format("January 02, 2006"))
 	f.SetCellValue(sheetName, fmt.Sprintf("B%d", rowNumber), e.Restaurant)
-	f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNumber), e.Amount.StringFixedBank(2))
+
+	// convert the amount to a string and then back to a number to prevent excel format problems
+	fixedAmountString := e.Amount.StringFixedBank(2)
+	amount, _ := strconv.ParseFloat(fixedAmountString, 64)
+	f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNumber), amount)
+
+	// force the sheet to update formulas
+	f.UpdateLinkedValue()
 
 	if err = f.Save(); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("OK")
+	currentTotal += e.Amount.InexactFloat64()
+
+	fmt.Printf("OK. TOTAL: %.2f\n", currentTotal)
+
+	return currentTotal
 }
 
 func setupSheet(filename string) {
@@ -133,6 +146,10 @@ func setupSheet(filename string) {
 
 	// determine if the sheet is already set up
 	if f.GetSheetIndex(months[0]) != 0 {
+		// if so, then if the current total is 0 then compute it
+		if currentTotal == 0 {
+			currentTotal = computeCurrentTotal(f)
+		}
 		return
 	}
 
@@ -174,4 +191,26 @@ func findFirstEmptyRow(f *excelize.File, sheetName string) int {
 
 	// if control reaches here, then all previous rows have content and so we need to make a new one
 	return len(rows) + 1
+}
+
+func computeCurrentTotal(f *excelize.File) float64 {
+
+	total := 0.0
+
+	fmt.Println("Computing total so far...")
+
+	for _, month := range months {
+		rows := f.GetRows(month)
+		for _, row := range rows {
+			if len(row) == 0 {
+				continue
+			}
+			amountStr := row[2]
+			if amount, err := strconv.ParseFloat(amountStr, 64); err == nil {
+				total += amount
+			}
+		}
+	}
+
+	return total
 }
