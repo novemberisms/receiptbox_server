@@ -46,6 +46,9 @@ func main() {
 		}
 	}
 
+	setupSheet(outputfile)
+	currentTotal = computeCurrentTotal(outputfile)
+
 	http.HandleFunc("/", indexHandler)
 
 	fmt.Printf("Running receiptbox_server on port %d\n", port)
@@ -85,7 +88,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Restaurant: %s\n", entry.Restaurant)
 	fmt.Printf("Amount: %s\n", entry.Amount.StringFixedBank(2))
 
-	setupSheet(outputfile)
 	total := updateSheet(outputfile, entry)
 
 	fmt.Fprintf(w, "OK: %s", strconv.FormatFloat(total, 'f', 2, 64))
@@ -137,8 +139,6 @@ func setupSheet(filename string) {
 		f = excelize.NewFile()
 		f.SaveAs(filename)
 		fmt.Println("OK")
-		setupSheet(filename)
-		return
 	}
 
 	mutex.Lock()
@@ -146,10 +146,6 @@ func setupSheet(filename string) {
 
 	// determine if the sheet is already set up
 	if f.GetSheetIndex(months[0]) != 0 {
-		// if so, then if the current total is 0 then compute it
-		if currentTotal == 0 {
-			currentTotal = computeCurrentTotal(f)
-		}
 		return
 	}
 
@@ -193,7 +189,12 @@ func findFirstEmptyRow(f *excelize.File, sheetName string) int {
 	return len(rows) + 1
 }
 
-func computeCurrentTotal(f *excelize.File) float64 {
+func computeCurrentTotal(outputfile string) float64 {
+
+	f, err := excelize.OpenFile(outputfile)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	total := 0.0
 
