@@ -30,7 +30,7 @@ type message struct {
 	Amount     string `json:"amount"`
 }
 
-var currentYear = time.Now().Year()
+var currentYear = time.Now().Year() - 1
 
 var currentTotal = 0.0
 
@@ -51,7 +51,7 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 
-	fmt.Printf("Running receiptbox_server on port %d\n", port)
+	fmt.Printf("Running receiptbox_server on port %d with year set to %d\n", port, currentYear)
 
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 
@@ -137,7 +137,9 @@ func setupSheet(filename string) {
 		fmt.Print("Creating new sheet...")
 		// if the sheet does not exist yet, then create one
 		f = excelize.NewFile()
-		f.SaveAs(filename)
+		if err := f.SaveAs(filename); err != nil {
+			log.Fatal(err)
+		}
 		fmt.Println("OK")
 	}
 
@@ -157,7 +159,10 @@ func setupSheet(filename string) {
 		f.SetColWidth(monthName, "B", "B", 32)
 		f.SetColWidth(monthName, "C", "C", 10)
 	}
-	f.Save()
+
+	if err := f.Save(); err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Println("OK")
 }
