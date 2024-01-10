@@ -119,7 +119,7 @@ func updateSheet(filename string, e *entry) float64 {
 	// force the sheet to update formulas
 	f.UpdateLinkedValue()
 
-	if err = f.Save(); err != nil {
+	if err = f.SaveAs(filename); err != nil {
 		log.Fatal(err)
 	}
 
@@ -160,7 +160,7 @@ func setupSheet(filename string) {
 		f.SetColWidth(monthName, "C", "C", 10)
 	}
 
-	if err := f.Save(); err != nil {
+	if err := f.SaveAs(filename); err != nil {
 		log.Fatal(err)
 	}
 
