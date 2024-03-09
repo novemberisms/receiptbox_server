@@ -90,9 +90,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	total := updateSheet(outputfile, entry)
 
-	fmt.Fprintf(w, "OK: %s", strconv.FormatFloat(total, 'f', 2, 64))
+	// handle error
+	if _, err := fmt.Fprintf(w, "OK: %s", strconv.FormatFloat(total, 'f', 2, 64)); err != nil {
+		fmt.Println(err)
+	}
 }
 
+// updateSheet updates the excel sheet with the new entry and returns the new total
 func updateSheet(filename string, e *entry) float64 {
 
 	fmt.Print("Updating sheet...")
@@ -130,6 +134,7 @@ func updateSheet(filename string, e *entry) float64 {
 	return currentTotal
 }
 
+// setupSheet creates the excel file if it does not exist and sets up the sheets for each month
 func setupSheet(filename string) {
 
 	f, err := excelize.OpenFile(filename)
@@ -177,6 +182,7 @@ func getSheetNameForDate(date time.Time) string {
 	return "Sheet1"
 }
 
+// findFirstEmptyRow returns the row number of the first empty row in the sheet (1-indexed)
 func findFirstEmptyRow(f *excelize.File, sheetName string) int {
 	rows := f.GetRows(sheetName)
 
@@ -190,10 +196,11 @@ func findFirstEmptyRow(f *excelize.File, sheetName string) int {
 		}
 	}
 
-	// if control reaches here, then all previous rows have content and so we need to make a new one
+	// if control reaches here, then all previous rows have content, and so we need to make a new one
 	return len(rows) + 1
 }
 
+// computeCurrentTotal computes the total of all the amounts in the excel file
 func computeCurrentTotal(outputfile string) float64 {
 
 	f, err := excelize.OpenFile(outputfile)
